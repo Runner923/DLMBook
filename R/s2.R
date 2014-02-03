@@ -55,3 +55,38 @@ legend("bottomleft", col=c("darkgrey", rep("black", 2))
        , lty=c(1,1,5), pch=c(1,NA,NA), bty="n"
        , legend=c("data", "smoothed level", "95% probability lines"))
 
+# p.67
+
+# expenditure
+expd <- ts(read.table("inst//extdata/qconsum.dat",skip=4
+                      , colClasses="numeric")[,1]
+           , start=c(1957, 1)
+           , frequency=4)
+expd.dlm <- dlm(m0 = rep(0,4), C0 = 1e8 * diag(4)
+                , FF = matrix(c(1,1,0,0), nrow=1)
+                , V = 1e-3
+                , GG = bdiag(matrix(1)
+                             , matrix(c(-1,-1,-1,1,0,0,0,1,0), nrow=3, byrow=T))
+                , W = diag(c(771.35, 86.48, 0, 0), nrow=4)
+)
+plot(expd, xlab = "", ylab="Expenditures", type="o", col="darkgrey")
+### Filter
+expdFilt <- dlmFilter(y=expd, mod=expd.dlm)
+lines(dropFirst(x=expdFilt$m[,1]), lty="dotdash")
+### Smooth
+expdSmooth <- dlmSmooth(y=expdFilt)
+lines(dropFirst(x=expdSmooth$s[,1]), lty="longdash")
+legend("bottomright", col=c("darkgrey", rep("black", 2))
+       , lty = c("solid", "dotdash", "longdash")
+       , pch = c(1,NA,NA)
+       , bty = "n"
+       , legend=c("data", "filtered level", "smoothed level"))
+### Seasonal component
+plot(dropFirst(expdSmooth$s[,2]), type="o", xlab = "", ylab="Expenditure - Seasonal component")
+abline(h=0)
+
+### parameter estimation with using most likelyhood
+build <- function(param){
+  expd.dlm + dlmModARMA(ar=2, ma=2, sigma2=exp(param[1]), dV=exp(param[2]))
+}
+fit <- dlmMLE(y=expd, parm=rep(0,2), build=build)
