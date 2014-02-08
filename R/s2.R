@@ -151,6 +151,7 @@ s2 <- function(){
   # p.77, 78 : innovation and model test
   qqnorm(residuals(damFilt, sd = F))
   qqline(residuals(damFilt, sd = F), probs=c(0.25,0.75))
+  tsdiag(damFilt)
   
   zzz <- residuals(object=damFilt,sd=F)
   zzz <- zzz[order(zzz)]
