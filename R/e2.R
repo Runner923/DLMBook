@@ -61,3 +61,16 @@ e2_5 <- function(){
 #  lines(dropFirst(mod.ll.filt$m), col="blue", lwd=0.5)
   lines(dropFirst(smooth.ll$s), col="black", lwd=0.5, lty="dotdash")
 }
+
+e2.6 <- function(){
+  build <- function(para){
+    dlmModPoly(order=1, dV=exp(para[1]), dW=exp(para[2]), m0=17, C0=1)
+  }
+  y <- c(17, 16.6, 16.3, 16.1, 17.1, 16.9, 16.8, 17.4, 17.1, 17)
+  dlmMLE.result <- dlmMLE(y=y, parm=c(0,0), build=build)
+  mld.ll <- build(dlmMLE.result$par)
+  mod.ll.filt <- dlmFilter(y=y, mod=mod.ll)
+  plot(y, col="grey", pch=20, type="o")
+  lines(dropFirst(mod.ll.filt$m), col="blue", lwd=0.5)
+  lines(mod.ll.filt$f, pch=20, type="l", lwd=0.5)  
+}
