@@ -148,3 +148,12 @@ names(expdFore)
 invisible(lapply(expdFore$newObs, function(x) lines(x, col = "darkgrey", type='o', pch=4)))
 lines(expdFore$f, type='o', lwd=2, pch=16)
 abline(v=mean(c(time(expdFore$f)[1], time(expd)[length(expd)])), lty="dashed")
+
+# p.77, 78 : innovation and model test
+qqnorm(residuals(damFilt, sd = F))
+qqline(residuals(damFilt, sd = F), probs=c(0.25,0.75))
+
+zzz <- residuals(object=damFilt,sd=F)
+zzz <- zzz[order(zzz)]
+points(qnorm(ppoints(n=length(zzz))), zzz, pch=20, col="red")
+lines(qnorm(ppoints(n=length(zzz))), qnorm(ppoints(n=length(zzz))), lwd="0.1")
