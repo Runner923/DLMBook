@@ -37,15 +37,29 @@ s3 <- function(polydim=1){
   modPolyAnalisys(invSpain, 1)
   # linear growth model
   modPolyAnalisys(invSpain, 2)
+  print("integrated process")
+  modPolyAnalisys(invSpain, 2, T)
   # quadratic growth ? model
   modPolyAnalisys(invSpain, 3)
+  print("integrated process")
+  modPolyAnalisys(invSpain, 3, T)
 }
 
-modPolyAnalisys <- function(indata, polydim = 1){
-  build <- function(para){
-    dlmModPoly(order=polydim, dV=exp(para[1]), dW=exp(para[2:(polydim+1)]), m0=rep(0, polydim), C0=1e7 * diag(polydim))
-  }
-  indata.mle <- dlmMLE(y=indata, parm=rep(0, (polydim+1)), build=build)  
+modPolyAnalisys <- function(indata, polydim = 1, integrated=F){
+  if(integrated == T){
+    init <- rep(0,2)
+    build <- function(para){
+      dlmModPoly(order=polydim, dV=exp(para[1]), dW=c(rep(0, polydim-1), exp(para[2]))
+                 , m0=c(indata[1], rep(0, polydim-1)), C0=1e7 * diag(c(rep(0, polydim-1), 1)))
+    }
+  } else {
+    init <- rep(0, (polydim+1))
+    build <- function(para){
+      dlmModPoly(order=polydim, dV=exp(para[1]), dW=exp(para[2:(polydim+1)])
+                 , m0=c(indata[1], rep(0, polydim-1)), C0=1e7 * diag(polydim))
+    }
+  }  
+  indata.mle <- dlmMLE(y=indata, parm=init, build=build)
   indata.dlm <- build(para=indata.mle$par) 
   str(indata.dlm, 1)
   indata.filt <- dlmFilter(y=indata, mod=indata.dlm)
