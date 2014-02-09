@@ -37,11 +37,13 @@ s3 <- function(polydim=1){
   modPolyAnalisys(invSpain, 1)
   # linear growth model
   modPolyAnalisys(invSpain, 2)
+  # quadratic growth ? model
+  modPolyAnalisys(invSpain, 3)
 }
 
 modPolyAnalisys <- function(indata, polydim = 1){
   build <- function(para){
-    dlmModPoly(order=polydim, dV=exp(para[1]), dW=exp(para[2:(polydim+1)]), m0=rep(indata[1], polydim), C0=1e7 * diag(polydim))
+    dlmModPoly(order=polydim, dV=exp(para[1]), dW=exp(para[2:(polydim+1)]), m0=rep(0, polydim), C0=1e7 * diag(polydim))
   }
   indata.mle <- dlmMLE(y=indata, parm=rep(0, (polydim+1)), build=build)  
   indata.dlm <- build(para=indata.mle$par) 
