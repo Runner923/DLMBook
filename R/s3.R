@@ -34,20 +34,29 @@ s3 <- function(polydim=1){
                            , colClasses="numeric")[,2]
                 , start=1960)
   # local level
-  modPolyAnalisys(invSpain, 1)
+  modPolyAnalisys(invSpain, polydim=1)
   # linear growth model
-  modPolyAnalisys(invSpain, 2)
+  modPolyAnalisys(invSpain, polydim=2)
   print("integrated process")
-  modPolyAnalisys(invSpain, 2, T)
+  modPolyAnalisys(invSpain, polydim=2, integrated=T)
   # quadratic growth ? model
-  modPolyAnalisys(invSpain, 3)
+  modPolyAnalisys(invSpain, polydim=3)
   print("integrated process")
-  modPolyAnalisys(invSpain, 3, T)
+  modPolyAnalisys(invSpain, polydim=3, integrated=T)
+  # forcasting
+  print("forcasting")
+  modPolyAnalisys(indata=invSpain, ylim=c(0,4000) + range(invSpain), polydim=1, filt.start=c(1960,1), filt.end=c(1985,1))
+  modPolyAnalisys(indata=invSpain, ylim=c(0,4000) + range(invSpain), polydim=2, filt.start=c(1960,1), filt.end=c(1985,1))
+  modPolyAnalisys(indata=invSpain, ylim=c(0,4000) + range(invSpain), polydim=3, filt.start=c(1960,1), filt.end=c(1985,1))
 }
 
-modPolyAnalisys <- function(indata, polydim = 1, integrated=F){
+modPolyAnalisys <- function(indata, ylim = range(indata), polydim = 1, integrated=F
+                            , filt.start=start(indata), filt.end=end(indata)){
+  plot(indata, type="o", col="black")
+  indata <- window(x=indata, start=filt.start, end=filt.end)
+  xlim <- c(start(indata)[1], end(indata)[1]) 
   if(integrated == T){
-    init <- rep(0,2)
+    init <- rep(3,2)
     build <- function(para){
       dlmModPoly(order=polydim, dV=exp(para[1]), dW=c(rep(0, polydim-1), exp(para[2]))
                  , m0=c(indata[1], rep(0, polydim-1)), C0=1e7 * diag(c(rep(0, polydim-1), 1)))
@@ -63,13 +72,21 @@ modPolyAnalisys <- function(indata, polydim = 1, integrated=F){
   indata.dlm <- build(para=indata.mle$par) 
   str(indata.dlm, 1)
   indata.filt <- dlmFilter(y=indata, mod=indata.dlm)
-  plot(indata, type="o", col="darkgrey")
   # first element of state vector
   if(polydim == 1){
-    indata.filt$m <- matrix(indata.filt$m, ncol=1)
+    m <- indata.filt$m
+  } else {
+    m <- indata.filt$m[,1]
   }
-  lines(dropFirst(indata.filt$m[,1]), col="red")
+  lines(dropFirst(m), col="red")
   lines(indata.filt$f, col="red", type="o", lty="longdash")
+  # forecasting
+  set.seed(1)
+  indata.forecast <- dlmForecast(mod=indata.filt, nAhead=10, sampleNew=100)
+  invisible(lapply(indata.forecast$newObs, function(x) lines(x, col = "darkgrey", type='o', pch=4)))
+  lines(indata.forecast$f, type='o', lwd=2, pch=16)
+  abline(v=mean(c(time(indata.forecast$f)[1], time(indata)[length(indata)])), lty="dashed")
+  # analysis of residuals
   res <- residuals(object=indata.filt,sd=F)
   qqnorm(res)
   qqline(res)
