@@ -86,6 +86,12 @@ modPolyAnalisys <- function(indata, ylim = range(indata), polydim = 1, integrate
   invisible(lapply(indata.forecast$newObs, function(x) lines(x, col = "darkgrey", type='o', pch=4)))
   lines(indata.forecast$f, type='o', lwd=2, pch=16)
   abline(v=mean(c(time(indata.forecast$f)[1], time(indata)[length(indata)])), lty="dashed")
+  print(paste(
+    mean(abs(indata.filt$f - indata))
+    , mean(abs(indata.filt$f - indata)^2)
+    , mean(abs((indata.filt$f - indata) / indata))
+    , sqrt(sum((indata.filt$f - indata)[-(1:5)]^2) / sum(diff(indata[-(1:4)])^2))
+  ))
   # analysis of residuals
   res <- residuals(object=indata.filt,sd=F)
   qqnorm(res)
@@ -95,5 +101,5 @@ modPolyAnalisys <- function(indata, ylim = range(indata), polydim = 1, integrate
   Box.test(x=res, lag=20, type="Ljung")
   sapply(X=1:20, function(i)
     Box.test(res, lag=i, type="Ljung-Box")$p.value
-  )
+  ) 
 }
