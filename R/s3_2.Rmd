@@ -1,0 +1,25 @@
+Title
+========================================================
+
+Chapter 3.
+
+Regression
+
+```{r}
+library(DLMBook)
+f <- file.path(getwd(),"../inst/extdata/P.dat")
+capm_1(f)
+```
+
+デンマークとスペインの年間投資額
+SUTSE
+
+それぞれは線形成長モデル
+$$Y_t = \mu_t + v_t $$
+$$\mu_t = \mu_{t-1} + \beta_{t} + w_{\mu , t} $$ 
+$$\beta_t = \beta_{t-1} + w_{\beta , t} $$
+
+```{r}
+mod <- dlmModPoly(order=2)
+mod$FF <- mod$FF %x% diag(2)
+```{r}
