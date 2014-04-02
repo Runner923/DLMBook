@@ -22,4 +22,30 @@ $$\beta_t = \beta_{t-1} + w_{\beta , t} $$
 ```{r}
 mod <- dlmModPoly(order=2)
 mod$FF <- mod$FF %x% diag(2)
+mod$GG <- mod$GG %x% diag(2)
+W1 <- matrix(0,2,2)
+W2 <- diag(c(49,437266))
+W2[1,2] <- W2[2,1] <- 155
+mod$W <- bdiag(W1, W2)
+V <- diag(c(72,14353))
+V[1,2] <- V[2,1] <- 1018
+mod$V <- V
+mod$m0 <- rep(0,4)
+mod$C0 <- diag(4) * 1e7
+
+invest <- ts(read.table("inst//extdata/invest2.dat",skip=0
+                          , colClasses="numeric")[,]
+               , start=1960)
+investFilt <- dlmFilter(y=invest, mod)
+dt.invest <- as.data.frame(investFilt$y)
+dt.invest$t <- time(invest)
+sdev <- residuals(object=investFilt)$sd
+lwr <- investFilt$f - qnorm(0.25) * sdev
+upr <- investFilt$f + qnorm(0.25) * sdev
+dt.invest$lwr <- lwr
+dt.invest$upr <- upr
+library(melt)
+library(ggplot2)
+plot(investFilt$y)
+lines(lwr)
 ```{r}
