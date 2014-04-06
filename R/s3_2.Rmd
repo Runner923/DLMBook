@@ -5,7 +5,7 @@ Chapter 3.
 
 Regression
 
-```{r}
+```{r, cache=T}
 library(DLMBook)
 f <- file.path(getwd(),"../inst/extdata/P.dat")
 capm_1(f)
@@ -19,7 +19,21 @@ $$Y_t = \mu_t + v_t $$
 $$\mu_t = \mu_{t-1} + \beta_{t} + w_{\mu , t} $$ 
 $$\beta_t = \beta_{t-1} + w_{\beta , t} $$
 
+qnorm(0.25)
+は標準正規分布の25%点であり、マイナスの値であることに注意する。
+qnorm(0.25) * stddev は信頼区間の考え方。
+ちょっと確認しておこう。
+
+なんとなくlocal
+
+indexの1ずれに注意＆まとめておく。
+毎回悩まずに済むカンペをつくる。
+
+1期先予測と実現値を同時刻で比較するなら,tにおける1期先予測の値を
+t+1での実現と比較すればよい.
+
 ```{r}
+library(DLMBook)
 mod <- dlmModPoly(order=2)
 mod$FF <- mod$FF %x% diag(2)
 mod$GG <- mod$GG %x% diag(2)
@@ -33,19 +47,30 @@ mod$V <- V
 mod$m0 <- rep(0,4)
 mod$C0 <- diag(4) * 1e7
 
-invest <- ts(read.table("inst//extdata/invest2.dat",skip=0
-                          , colClasses="numeric")[,]
-               , start=1960)
+invest <- ts(read.table("../inst//extdata/invest2.dat",skip=0
+                        , colClasses="numeric")[,]
+             , start=1960)
 investFilt <- dlmFilter(y=invest, mod)
-dt.invest <- as.data.frame(investFilt$y)
-dt.invest$t <- time(invest)
 sdev <- residuals(object=investFilt)$sd
-lwr <- investFilt$f - qnorm(0.25) * sdev
-upr <- investFilt$f + qnorm(0.25) * sdev
-dt.invest$lwr <- lwr
-dt.invest$upr <- upr
-library(melt)
-library(ggplot2)
-plot(investFilt$y)
-lines(lwr)
+lwr <- (investFilt$f + qnorm(0.25) * sdev)
+upr <- investFilt$f - qnorm(0.25) * sdev
+local(
+  lapply(X=c(1:2), FUN=function(i, exclude.indices=NULL){
+    ts.y <- investFilt$y[,i]
+    original <- as.numeric(ts.y)
+    t <- as.numeric(time(ts.y))
+    mean.pred <-as.numeric(investFilt$f[,i]) 
+    upr <- as.numeric(upr[,i])
+    lwr <- as.numeric(lwr[,i])
+    dt <- data.frame(t=t[-1], mean.pred = mean.pred[-length(mean.pred)], original=original[-1], upr=upr[-length(upr)], lwr=lwr[-length(lwr)])
+    if(is.integer(exclude.indices)){
+      dt <- dt[-exclude.indices,]
+    }
+    dt <- TimeSeriesDFtoDFforggplot(dt=dt)
+    g <- ggplot(data=dt,aes(x=t, y=value, colour=variable))
+    g <- g + geom_line()
+    print(g)
+    NULL
+    })
+  )
 ```{r}
