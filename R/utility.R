@@ -23,7 +23,7 @@ DLMFilteredPredictionToDF <- function(dlmFiltered, exclude.indices=NULL, columnI
   original <- as.numeric(ts.y)
   t <- as.numeric(time(ts.y))
   mean.pred <-as.numeric(dlmFiltered$f[,i])
-  dt <- data.frame(t=t[-1], mean.pred = mean.pred[-length(mean.pred)], original=original[-1])
+  dt <- data.frame(t=t, mean.pred = mean.pred, original=original)
   if(is.numeric(conf.interval) && abs(conf.interval) <= 1){
     sdev <- residuals(object=dlmFiltered)$sd
     interval.width <- qnorm(0.5 + 0.5 * conf.interval) * sdev
@@ -31,8 +31,8 @@ DLMFilteredPredictionToDF <- function(dlmFiltered, exclude.indices=NULL, columnI
     lwr <- dlmFiltered$f - interval.width 
     upr <- as.numeric(upr[,i])
     lwr <- as.numeric(lwr[,i])
-    dt$upr = upr[-length(upr)]
-    dt$lwr = lwr[-length(lwr)]
+    dt$upr = upr
+    dt$lwr = lwr
   }
   if(is.integer(exclude.indices)){
     dt <- dt[-exclude.indices,]
@@ -49,4 +49,17 @@ DLMFilteredPredictionToDF <- function(dlmFiltered, exclude.indices=NULL, columnI
 CountInsideValuesRatio <- function(values, upper, lower){
   hits <- sum(values < upper & values > lower)
   return(hits / length(values))
+}
+
+#'
+#' @param dfs DLMFilteredPredictionToDFの戻り値
+PlotDLMFilteredPredictionDF <- function(dfs){
+  g <- ggplot(data=dfs$dt,aes(x=t, y=value, colour=colour, group=variable))
+  g <- g + geom_point() + geom_line()
+  print(g)
+  tdt <- dfs$TSDT
+  predictionHitRate <- CountInsideValuesRatio(
+    values=tdt$original, upper=tdt$upr, lower=tdt$lwr)
+  print(predictionHitRate)
+  predictionHitRate)
 }
