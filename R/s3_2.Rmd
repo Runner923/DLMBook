@@ -21,11 +21,10 @@ $$\beta_t = \beta_{t-1} + w_{\beta , t} $$
 
 1期先予測と実現値を同時刻で比較するなら,tにおける1期先予測の値を
 t+1での実現と比較すればよい.
-
-デンマークかスペインかどちらか分からないが、
-1番目のデータのほうが本モデルで説明できていそうである。
-信頼区間に入る割合から。
-但し,0.9くらい大きくするとずれが大きくなる。
+dlmFiltered objectのyは観測値であり, fは予測値である.
+yのi行目はi番目の観測値を表すが、fのi行目はyのi行目に対する予測値を表す.
+i+1行目に対する予測値ではないことに注意.
+要するに単純に同じ行同士で比較すればよい.
 
 ```{r}
 library(DLMBook)
@@ -46,7 +45,7 @@ invest <- ts(read.table("../inst//extdata/invest2.dat",skip=0
                         , colClasses="numeric")[,]
              , start=1960)
 investFilt <- dlmFilter(y=invest, mod)
-conf.interval <- 0.3
+conf.interval <- 0.5
 dt1 <- DLMFilteredPredictionToDF(
   dlmFiltered=investFilt,exclude.indices=c(1:2), columnIndex=1
   , conf.interval=conf.interval)
@@ -56,13 +55,8 @@ dt2 <- DLMFilteredPredictionToDF(
 print(conf.interval)
 dfs <- list(dt1, dt2)
 lapply(X=c(1:2), FUN=function(i){
-  g <- ggplot(data=dfs[[i]]$dt,aes(x=t, y=value, colour=colour, group=variable))
-  g <- g + geom_point() + geom_line()
-  print(g)
-  tdt <- dfs[[i]]$TSDT
-  predictionHitRate <- CountInsideValuesRatio(
-    values=tdt$original, upper=tdt$upr, lower=tdt$lwr)
-  print(predictionHitRate)
+  temp <- dfs[[i]]
+  PlotDLMFilteredPredictionDF(dfs=temp)
   NULL
   })
 ```{r}
