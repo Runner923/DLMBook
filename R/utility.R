@@ -61,5 +61,5 @@ PlotDLMFilteredPredictionDF <- function(dfs){
   predictionHitRate <- CountInsideValuesRatio(
     values=tdt$original, upper=tdt$upr, lower=tdt$lwr)
   print(predictionHitRate)
-  predictionHitRate)
+  predictionHitRate
 }
