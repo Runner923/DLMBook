@@ -37,8 +37,16 @@ DLMFilteredPredictionToDF <- function(dlmFiltered, exclude.indices=NULL, columnI
   if(is.integer(exclude.indices)){
     dt <- dt[-exclude.indices,]
   }
+  tdt <- dt
   dt <- TimeSeriesDFtoDFforggplot(dt=dt)
   dt$colour <- as.character(dt$variable)
   dt$colour[dt$colour == "lwr" | dt$colour == "upr"] <- "conf.bound"
-  dt
+  return(list(dt=dt,TSDT=tdt))
+}
+
+#' 
+#' @description 指定した値がupper, lowerの間にある割合を返す
+CountInsideValuesRatio <- function(values, upper, lower){
+  hits <- sum(values < upper & values > lower)
+  return(hits / length(values))
 }
