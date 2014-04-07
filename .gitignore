@@ -4,3 +4,9 @@
 src/*.o
 src/*.so
 src/*.dll
+**/*.png
+**/*.html
+**/*.pdf
+**/*.Rd
+**/Rcppexports.cpp
+**/*.md
