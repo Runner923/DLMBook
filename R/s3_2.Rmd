@@ -65,65 +65,85 @@ lapply(X=c(1:2), FUN=function(i){
 
 一見無関係な回帰モデル
 
-SUR model
+Seemingly Unrelated Regression(SUR) model
 
 それぞれは動的回帰モデル
-$$Y_{i,t} = \alpha_{i,t} + \beta_{i,t} * x_{i,t} + v_{i,t} $$
+$$Y_{i,t} = \alpha_{i,t} + \beta_{i,t} * x_{t} + v_{i,t} $$
 $$\alpha_{i,t} = \alpha_{i, t-1}  + w_{1,i,t} $$ 
-$$\beta_{i,t} = \beta_{i, t-1}  + w_{2,i,t} $$ 
+$$\beta_{i,t} = \beta_{i, t-1}  + w_{2,i,t} $$
+$$i = 1, \dots , m $$
+に従う. これをクロネッカー積を用いてまとめて表現すると以下のようになる。
+\[Y_t = (F_t \otimes I_m)\theta_t + v_t, v_t \sim N(0,V) \]
+\[\theta_t = (G \otimes I_m) \theta_{t-1} + w_t, w_t \sim N(0,W)\]
 
 ```{r}
 library(DLMBook)
-data.path <- "inst/extdata/P.dat"
+data.path <- "../inst/extdata/P.dat"
 dat <- read.table(data.path, header=T) * 100
 dat.ts <- ts(dat, start=c(1978,1),frequency=12)
 y <- dat.ts[,1:4] - dat.ts[,"RKFREE"]
 colnames(y) <- colnames(dat)[1:4]
 market <- dat.ts[,"MARKET"] - dat.ts[,"RKFREE"]
+```
+
+ちょっとプロット
+
+```{r}
+dat.df <- TStoDF(obj.ts=dat.ts)
+g <- ggplot(data=dat.df, aes(x=t, y=value, colour=variable)) + geom_point() + geom_line()
+g
+excess.return.ts <- dat.ts[,1:5] - dat[,"RKFREE"]
+excess.return.df <- TStoDF(obj.ts=excess.return.ts)
+g <- ggplot(data=excess.return.df, aes(x=t, y=value, colour=variable)) 
+g <- g + geom_point() + geom_line() + ggtitle("Excess Return")
+g
+
+```
+
+ベータの推定
+
+```{r}
 ### Set up the model
 m <- NCOL(y)
 CAPM <- dlmModReg(X=market)
 CAPM$FF <- CAPM$FF %x% diag(m)
-capm_1 <- function(file.path="inst/extdata/P.dat", target="IBM", counter.target="MARKET"){
-  capm <- read.table(file.path)
-  capm.ts <- ts(capm, start = c(1978,1), frequency=12)
-  colnames(capm)
-  plot(capm.ts)
-  target <- capm.ts[,target] - capm.ts[,"RKFREE"]
-  x <- capm.ts[,counter.target] - capm.ts[,"RKFREE"]
-  outLM <- lm(target ~ x)
-  print(outLM$coef)
-  acf(outLM$residuals)
-  qqnorm(outLM$residuals)
-  
-  mod <- dlmModReg(X=x, dV=0.00254, m0=c(0,1.5), C0=diag(c(1e+07,1)))
-  outF <- dlmFilter(y=target,mod=mod)
-  print(outF$m[1 + length(target), ])
-  buildCapm <- function(u){
-    dlmModReg(X=x, dV=exp(u[1]), dW=exp(u[2:3]))
-  }
-  outMLE <- dlmMLE(y=target, parm=rep(0,3), build=buildCapm)
-  print(exp(outMLE$par))
-  print(outMLE$value)
-  mod <- buildCapm(outMLE$par)
-  outS <- dlmSmooth(y=target, mod)
-  plot(dropFirst(outS$s))
-}
+CAPM$GG <- CAPM$GG %x% diag(m)
+CAPM$JFF <- CAPM$JFF %x% diag(m)
+CAPM$W <- CAPM$W %x% matrix(0,m,m)
+CAPM$W[-(1:m), -(1:m)] <- 
+  c(8.253e-07, -3.172e-05, -4.267e-05, -6.649e-05,
+    -3.172e-05, 0.001377, 0.001852, 0.002884,
+    -4.267e-05, 0.001852, 0.002498, 0.003884,
+    -6.649e-05, 0.002884, 0.003884, 0.006057)
+CAPM$V <- CAPM$V %x% matrix(0,m,m)
+CAPM$V[] <- 
+  c(41.06, 0.01571, -0.9504, -2.328,
+    0.01571, 24.23, 5.783, 3.376,
+    -0.9504, 5.783, 39.2, 8.145,
+    -2.328, 3.376, 8.145, 39.29)
+CAPM$m0 <- rep(0, 2 * m)
+CAPM$C0 <- diag(1e7, nrow=2 * m)
+
+### Smooth
+CAPMSmooth <- dlmSmooth(y, CAPM)
+### plots
+plot(dropFirst(CAPMSmooth$s[, m+c(1:m)]),
+     lty = c("13", "6413", "431313", "B4"),
+     plot.type = "s", xlab="", ylab = "Beta")
+abline(h=1, col="darkgrey")
+legend("bottomright", legend=colnames(y), bty = "n",
+       lty = c("13", "6413", "431313", "B4"), inset = 0.05)
+s <- CAPMSmooth$s
+colnames(s) <- rep(colnames(dat[,1:4]), 2)
+dt <- TStoDF(obj.ts=s[,m+c(1:m)])
+g <- ggplot(data=dt, aes(x=t, y=value, colour=variable)) 
+g <- g + geom_point() + geom_line() + ggtitle("Beta")
+g
+
+dt <- TStoDF(obj.ts=s[,c(1:m)])
+g <- ggplot(data=dt, aes(x=t, y=value, colour=variable)) 
+g <- g + geom_point() + geom_line() + ggtitle("Alpha (time independent)")
+g
 
 
-investFilt <- dlmFilter(y=invest, mod)
-conf.interval <- 0.5
-dt1 <- DLMFilteredPredictionToDF(
-  dlmFiltered=investFilt,exclude.indices=c(1:2), columnIndex=1
-  , conf.interval=conf.interval)
-dt2 <- DLMFilteredPredictionToDF(
-  dlmFiltered=investFilt,exclude.indices=c(1), columnIndex=2
-  , conf.interval=conf.interval)
-print(conf.interval)
-dfs <- list(dt1, dt2)
-lapply(X=c(1:2), FUN=function(i){
-  temp <- dfs[[i]]
-  PlotDLMFilteredPredictionDF(dfs=temp)
-  NULL
-  })
 ```
