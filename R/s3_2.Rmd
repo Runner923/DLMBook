@@ -59,4 +59,71 @@ lapply(X=c(1:2), FUN=function(i){
   PlotDLMFilteredPredictionDF(dfs=temp)
   NULL
   })
+```
+
+**株式の超過収益率**
+
+一見無関係な回帰モデル
+
+SUR model
+
+それぞれは動的回帰モデル
+$$Y_{i,t} = \alpha_{i,t} + \beta_{i,t} * x_{i,t} + v_{i,t} $$
+$$\alpha_{i,t} = \alpha_{i, t-1}  + w_{1,i,t} $$ 
+$$\beta_{i,t} = \beta_{i, t-1}  + w_{2,i,t} $$ 
+
 ```{r}
+library(DLMBook)
+data.path <- "inst/extdata/P.dat"
+dat <- read.table(data.path, header=T) * 100
+dat.ts <- ts(dat, start=c(1978,1),frequency=12)
+y <- dat.ts[,1:4] - dat.ts[,"RKFREE"]
+colnames(y) <- colnames(dat)[1:4]
+market <- dat.ts[,"MARKET"] - dat.ts[,"RKFREE"]
+### Set up the model
+m <- NCOL(y)
+CAPM <- dlmModReg(X=market)
+CAPM$FF <- CAPM$FF %x% diag(m)
+capm_1 <- function(file.path="inst/extdata/P.dat", target="IBM", counter.target="MARKET"){
+  capm <- read.table(file.path)
+  capm.ts <- ts(capm, start = c(1978,1), frequency=12)
+  colnames(capm)
+  plot(capm.ts)
+  target <- capm.ts[,target] - capm.ts[,"RKFREE"]
+  x <- capm.ts[,counter.target] - capm.ts[,"RKFREE"]
+  outLM <- lm(target ~ x)
+  print(outLM$coef)
+  acf(outLM$residuals)
+  qqnorm(outLM$residuals)
+  
+  mod <- dlmModReg(X=x, dV=0.00254, m0=c(0,1.5), C0=diag(c(1e+07,1)))
+  outF <- dlmFilter(y=target,mod=mod)
+  print(outF$m[1 + length(target), ])
+  buildCapm <- function(u){
+    dlmModReg(X=x, dV=exp(u[1]), dW=exp(u[2:3]))
+  }
+  outMLE <- dlmMLE(y=target, parm=rep(0,3), build=buildCapm)
+  print(exp(outMLE$par))
+  print(outMLE$value)
+  mod <- buildCapm(outMLE$par)
+  outS <- dlmSmooth(y=target, mod)
+  plot(dropFirst(outS$s))
+}
+
+
+investFilt <- dlmFilter(y=invest, mod)
+conf.interval <- 0.5
+dt1 <- DLMFilteredPredictionToDF(
+  dlmFiltered=investFilt,exclude.indices=c(1:2), columnIndex=1
+  , conf.interval=conf.interval)
+dt2 <- DLMFilteredPredictionToDF(
+  dlmFiltered=investFilt,exclude.indices=c(1), columnIndex=2
+  , conf.interval=conf.interval)
+print(conf.interval)
+dfs <- list(dt1, dt2)
+lapply(X=c(1:2), FUN=function(i){
+  temp <- dfs[[i]]
+  PlotDLMFilteredPredictionDF(dfs=temp)
+  NULL
+  })
+```
