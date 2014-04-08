@@ -1,0 +1,48 @@
+Chapter 4
+========================================================
+
+**4.1 最尤推定**
+
+```{r}
+library(DLMBook)
+setwd("..")
+y <- ts(read.table(file="inst/extdata/lakeSuperior.dat", skip=3)[,2], start=c(1900,1))
+build <- function(param){
+  dlmModPoly(order=1, dV=exp(param[1]), dW=exp(param[2]))
+}
+fit <- dlmMLE(y=y, parm=rep(0,2), build=build)
+print(fit)
+mod <- build(fit$par)
+dat.filtered <- dlmFilter(y=y, mod=mod)
+print(unlist(dat.filtered$mod[c("V","W")]))
+```
+
+状態の推定
+```{r}
+dat.filt.stddev <- sqrt(ts(unlist(dlmSvd2var(dat.filtered$U.C, dat.filtered$D.C))[-1],start=c(1900,1)))
+conf.interval <- 0.5
+conf.width <- qnorm(0.5 + 0.5 * conf.interval) * dat.filt.stddev
+y.filt <- dropFirst(dat.filtered$m)
+upper <- y.filt + conf.width
+lower <- y.filt - conf.width
+dt <- TStoDF(obj.ts=ts.intersect(y, y.filt, upper, lower))
+ggplot(data=dt, aes(x=t, y=value, colour=variable)) + geom_line() + scale_color_manual(values=c("black", "red", "blue", "blue"))
+```
+
+予測
+
+```{r}
+dat.filtered
+dt <- DLMFilteredPredictionToDF(dlmFiltered=dat.filtered,exclude.indices=c(1:2))
+PlotDLMFilteredPredictionDF(dfs=dt)
+```
+
+1期先予測分布とイノベーションの標準偏差
+いま$F=1$に注意すると,
+
+```{r}
+library(DLMBook)
+sqrt(unlist(dlmSvd2var(dat.filtered$U.R,dat.filtered$D.R)) + mod$V)
+residuals(dat.filtered)$sd
+
+```
