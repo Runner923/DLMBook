@@ -33,12 +33,14 @@ ggplot(data=dt, aes(x=t, y=value, colour=variable)) + geom_line() + scale_color_
 
 ```{r}
 dat.filtered
-dt <- DLMFilteredPredictionToDF(dlmFiltered=dat.filtered,exclude.indices=c(1:2))
-PlotDLMFilteredPredictionDF(dfs=dt)
+dt <- DLMFilteredPredictionToDF(dlmFiltered=dat.filtered,exclude.indices=c(1:2),conf.interval=0.2)
+hitRate <- PlotDLMFilteredPredictionDF(dfs=dt)
+print(hitRate)
 ```
 
+*補足*
 1期先予測分布とイノベーションの標準偏差
-いま$F=1$に注意すると,
+いま$F=1$に注意すると,次の2つの計算方法で一致することを確認できる.
 
 ```{r}
 library(DLMBook)
@@ -46,3 +48,18 @@ sqrt(unlist(dlmSvd2var(dat.filtered$U.R,dat.filtered$D.R)) + mod$V)
 residuals(dat.filtered)$sd
 
 ```
+
+### 最尤推定により推定された分散の標準誤差
+
+頻度論における推定された値の分布を考えて、その標準偏差を求めようという話。
+
+```{r}
+library(DLMBook)
+fit <- dlmMLE(y=y, parm=rep(0,2), build=build, hessian=T)
+avarLog <- solve(a=fit$hessian) # aymptotic variance log かな
+avar <- diag(exp(fit$par)) %*% avarLog %*% diag(exp(fit$par)) # Delta method
+vw.sdv <- sqrt(diag(avar))
+print(vw.sdv) # estimated standard errors
+print(unlist(dat.filtered$mod[c("V","W")]))
+```
+
