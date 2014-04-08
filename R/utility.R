@@ -19,18 +19,24 @@ TimeSeriesDFtoDFforggplot <- function(dt, id="t", target.columns=colnames(dt)){
 
 DLMFilteredPredictionToDF <- function(dlmFiltered, exclude.indices=NULL, columnIndex=1, conf.interval=0.5){
   i <- columnIndex
-  ts.y <- dlmFiltered$y[,i]
+  if("matrix" %in% class(dlmFiltered$y)){
+    ts.y <- dlmFiltered$y[,i]
+    mean.pred <-as.numeric(dlmFiltered$f[,i])
+    f <- dlmFiltered$f [,i]
+    sdev <- residuals(object=dlmFiltered)$sd[,i]
+  } else {
+    ts.y <- dlmFiltered$y
+    mean.pred <-as.numeric(dlmFiltered$f)
+    f <- dlmFiltered$f
+    sdev <- residuals(object=dlmFiltered)$sd
+  }
   original <- as.numeric(ts.y)
   t <- as.numeric(time(ts.y))
-  mean.pred <-as.numeric(dlmFiltered$f[,i])
   dt <- data.frame(t=t, mean.pred = mean.pred, original=original)
   if(is.numeric(conf.interval) && abs(conf.interval) <= 1){
-    sdev <- residuals(object=dlmFiltered)$sd
     interval.width <- qnorm(0.5 + 0.5 * conf.interval) * sdev
-    upr <- dlmFiltered$f + interval.width 
-    lwr <- dlmFiltered$f - interval.width 
-    upr <- as.numeric(upr[,i])
-    lwr <- as.numeric(lwr[,i])
+    upr <- as.numeric(f + interval.width)
+    lwr <- as.numeric(f - interval.width)
     dt$upr = upr
     dt$lwr = lwr
   }
@@ -60,6 +66,5 @@ PlotDLMFilteredPredictionDF <- function(dfs){
   tdt <- dfs$TSDT
   predictionHitRate <- CountInsideValuesRatio(
     values=tdt$original, upper=tdt$upr, lower=tdt$lwr)
-  print(predictionHitRate)
   predictionHitRate
 }
