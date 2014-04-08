@@ -6,8 +6,9 @@ Chapter 3.
 Regression
 
 ```{r, cache=T}
+setwd("..")
 library(DLMBook)
-f <- file.path(getwd(),"../inst/extdata/P.dat")
+f <- file.path("inst/extdata/P.dat")
 capm_1(f)
 ```
 
@@ -41,7 +42,7 @@ mod$V <- V
 mod$m0 <- rep(0,4)
 mod$C0 <- diag(4) * 1e7
 
-invest <- ts(read.table("../inst//extdata/invest2.dat",skip=0
+invest <- ts(read.table("inst//extdata/invest2.dat",skip=0
                         , colClasses="numeric")[,]
              , start=1960)
 investFilt <- dlmFilter(y=invest, mod)
@@ -77,8 +78,8 @@ $$i = 1, \dots , m $$
 \[\theta_t = (G \otimes I_m) \theta_{t-1} + w_t, w_t \sim N(0,W)\]
 
 ```{r}
-library(DLMBook)
-data.path <- "../inst/extdata/P.dat"
+setwd("..")
+data.path <- "inst/extdata/P.dat"
 dat <- read.table(data.path, header=T) * 100
 dat.ts <- ts(dat, start=c(1978,1),frequency=12)
 y <- dat.ts[,1:4] - dat.ts[,"RKFREE"]
@@ -89,6 +90,7 @@ market <- dat.ts[,"MARKET"] - dat.ts[,"RKFREE"]
 ちょっとプロット
 
 ```{r}
+library(DLMBook)
 dat.df <- TStoDF(obj.ts=dat.ts)
 g <- ggplot(data=dat.df, aes(x=t, y=value, colour=variable)) + geom_point() + geom_line()
 g
@@ -103,6 +105,7 @@ g
 ベータの推定
 
 ```{r}
+library(DLMBook)
 ### Set up the model
 m <- NCOL(y)
 CAPM <- dlmModReg(X=market)
@@ -147,3 +150,11 @@ g
 
 
 ```
+
+**補足**
+```
+residuals(dlmのobject)
+```
+関数は標準化イノベーションと、イノベーションの標準偏差を返す。
+1変数で考えれば, イノベーションの標準偏差と, 1期先予測分布の分散行列Qは一致する。
+
