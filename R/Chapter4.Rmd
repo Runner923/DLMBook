@@ -17,7 +17,8 @@ dat.filtered <- dlmFilter(y=y, mod=mod)
 print(unlist(dat.filtered$mod[c("V","W")]))
 ```
 
-状態の推定
+### 状態の推定
+
 ```{r}
 dat.filt.stddev <- sqrt(ts(unlist(dlmSvd2var(dat.filtered$U.C, dat.filtered$D.C))[-1],start=c(1900,1)))
 conf.interval <- 0.5
@@ -29,16 +30,15 @@ dt <- TStoDF(obj.ts=ts.intersect(y, y.filt, upper, lower))
 ggplot(data=dt, aes(x=t, y=value, colour=variable)) + geom_line() + scale_color_manual(values=c("black", "red", "blue", "blue"))
 ```
 
-予測
+### 予測
 
 ```{r}
-dat.filtered
 dt <- DLMFilteredPredictionToDF(dlmFiltered=dat.filtered,exclude.indices=c(1:2),conf.interval=0.2)
 hitRate <- PlotDLMFilteredPredictionDF(dfs=dt)
 print(hitRate)
 ```
 
-*補足*
+**補足**
 1期先予測分布とイノベーションの標準偏差
 いま$F=1$に注意すると,次の2つの計算方法で一致することを確認できる.
 
@@ -51,7 +51,9 @@ residuals(dat.filtered)$sd
 
 ### 最尤推定により推定された分散の標準誤差
 
-頻度論における推定された値の分布を考えて、その標準偏差を求めようという話。
+頻度論
+
+推定された値の分布を考えて、その標準偏差を求めようという話。
 
 ```{r}
 library(DLMBook)
@@ -63,3 +65,44 @@ print(vw.sdv) # estimated standard errors
 print(unlist(dat.filtered$mod[c("V","W")]))
 ```
 
+4.4.3 Gibbs sampling on a local level model
+=====
+
+model : local level model  
+精度 : $\psi_1, \psi_2$  
+精度のprior : Gamma distribution $g(a_i, b_i)$, $a$をshape, $b$をrateという?
+
+1. 初期化
+2. Applying Kalman-filter to the data on the model with the parameter
+3. Backward sampling the all states on the posterior
+4. 
+```{r}
+a1 <- 2
+b1 <- 0.0001
+a2 <- 2
+## starting values
+psi1 <- 1
+psi2 <- 1
+mod_level <- dlmModPoly(order=1, dV=1/psi1, dW=1/psi2)
+
+mc <- 1500
+psi1_save <- numeric(mc)
+psi2_save <- numeric(mc)
+n <- length(Nile)
+sh1 <- a1 + n / 2
+sh2 <- a2 + n / 2
+set.seed(10)
+
+for (it in 1 : mc)
+{
+  ## draw the states: FFBS
+  filt <- dlmFilter(Nile, mod_level)
+  # 事後分布からの状態のサンプリング: 状態は本モデルではlevelを表すのでlevelとする
+  level <- dlmBSample(modFilt=filt)
+  ## draw observation presicion psi1
+  rate <- b1 + crossprod(Nile - level[-1]) / 2
+  psi1 <- rgamma(n=1, shape=sh1, rate=rate)
+  ## draw system presicon psi2
+  
+}
+```
