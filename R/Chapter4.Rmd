@@ -80,6 +80,7 @@ model : local level model
 a1 <- 2
 b1 <- 0.0001
 a2 <- 2
+b2 <- 0.0001
 ## starting values
 psi1 <- 1
 psi2 <- 1
@@ -88,6 +89,7 @@ mod_level <- dlmModPoly(order=1, dV=1/psi1, dW=1/psi2)
 mc <- 1500
 psi1_save <- numeric(mc)
 psi2_save <- numeric(mc)
+level_save <- vector(mode="list",length=mc)
 n <- length(Nile)
 sh1 <- a1 + n / 2
 sh2 <- a2 + n / 2
@@ -99,10 +101,26 @@ for (it in 1 : mc)
   filt <- dlmFilter(Nile, mod_level)
   # 事後分布からの状態のサンプリング: 状態は本モデルではlevelを表すのでlevelとする
   level <- dlmBSample(modFilt=filt)
+  level_save[[it]] <- level
   ## draw observation presicion psi1
   rate <- b1 + crossprod(Nile - level[-1]) / 2
   psi1 <- rgamma(n=1, shape=sh1, rate=rate)
   ## draw system presicon psi2
-  
+  rate <- b2 + crossprod(level[-1] - level[-n]) / 2
+  psi2 <- rgamma(n=1, shape=sh2, rate=rate)
+  ## update and save
+  V(mod_level) <- 1 / psi1
+  W(mod_level) <- 1 / psi2
+  psi1_save[it] <- psi1
+  psi2_save[it] <- psi2
 }
+burnout <- 1:1000
+plot(psi1_save)
+plot(psi2_save, col="red")
+hist(psi1_save[-burnout])
+hist(psi2_save[-burnout])
+mean(psi1_save[-burnout])
+mean(psi2_save[-burnout])
+plot(Nile)
+invisible(lapply(X=level_save[-burnout], FUN=function(x){lines(x, col="darkgrey", pch="4")}))
 ```
