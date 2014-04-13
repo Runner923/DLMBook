@@ -1,0 +1,122 @@
+4.5 未知の分散
+========================================================
+
+**4.5.1 固定の未知の分散:$d$個の逆ガンマ分布**
+
+**gamma 分布のプロット**
+
+```{r, cache=TRUE}
+shape <- 10
+x <- seq(-1,100,0.1)
+rates <- c(0.1,0.5,1.0,5.0)
+invisible(lapply(X=rates, FUN=function(rate){
+  print(rate)
+  plot(x, dgamma(x=x,shape=shape,rate=rate))
+}))
+rate <- 0.5
+shapes <- c(0.1, 1, 5, 10, 15)
+invisible(lapply(X=shapes, FUN=function(shape){
+  print(shape)
+  plot(x, dgamma(x=x,shape=shape,rate=rate))
+}))
+
+```
+
+**inverse gamma分布**
+
+\[X \sim g(a,b), Y = \frac{1}{X} \]
+
+the inverse gamma density
+\[IG(y)dy = g(x;a,b)dx\]
+\[IG(y) = g(\frac{1}{y};a,b) y^{-2}\]
+
+```{r, cache=TRUE}
+shape <- 1
+y <- seq(-0.1,5,0.001)
+rates <- c(0.01,0.1,0.5,1.0,5.0)
+invisible(lapply(X=rates, FUN=function(rate){
+  print(rate)
+  plot(y, y^(-2) * dgamma(x=(1/y),shape=shape,rate=rate))
+}))
+rate <- 0.5
+shapes <- c(0.01,0.1, 1, 5, 10, 15)
+invisible(lapply(X=shapes, FUN=function(shape){
+  print(shape)
+  plot(y, y^(-2) * dgamma(x=(1/y),shape=shape,rate=rate))
+}))
+```
+
+Modelling the investment amounts in Spain
+
+linear growth model with unknown variances
+
+\[Y_t = \mu_t + v_t\]
+\[\mu_t = \mu_{t-1} + \beta_{t-1} + w_{\mu,t}\]
+\[\beta_t = \beta_{t-1} + w_{\beta, t} \]
+
+$$v_t \sim N(0,V_t), w_{\mu, t} \sim N(0,W_{\mu,t}),
+w_{\beta, t} \sim N(0,W_{\beta,t})$$
+
+精度に対する事前分布の平均と分散を適当に設定する.properly  
+観測値の精度はある程度あるだろう.状態に対する精度は大きめか.   
+分散は事前分布に対する不確実さを表すために大きめに.
+
+
+
+```{r, cache=TRUE}
+setwd("..")
+invSpain <- ts(read.table("inst/extdata/invest2.dat")[,2] / 1000, start=1960)
+set.seed(5672)
+
+MCMC <- 12000
+thin <- 1
+gibbsOut <- dlmGibbsDIG(
+  a.y=1, b.y=1000, a.theta=10, b.theta=1000,n.sample=MCMC,thin=thin,progressBar=F
+  ,y=invSpain, mod=dlmModPoly(order=2)
+  )
+burn <- 2000
+use <- MCMC - burn
+from <- 0.05 * use
+```
+
+未知パラメータのMCMCサンプル・プロット
+
+```{r,cache=TRUE}
+invisible(lapply(list(gibbsOut$dV, gibbsOut$dW[,1], gibbsOut$dW[,2])
+                 , FUN=function(x){plot(1:MCMC, x)}))
+```
+
+未知パラメータのMCMCサンプル時間平均・プロット
+
+\[\bar{x}_t = \frac{1}{t}\sum _{s=1} ^{s=t} x_s \]
+
+$t$をfrom から $T$までとする.
+
+但し, burn-in 期間を除外した$x_t$を使う.
+
+```{r,cache=TRUE}
+invisible(
+  lapply(
+    list(gibbsOut$dV, gibbsOut$dW[,1], gibbsOut$dW[,2])
+    , FUN=function(x){
+      plot(ergMean(x=x[-(1:burn)],m=from), type="l", xaxt="n", xlab="", ylab="")
+      at <- pretty(c(0,use), n=3)
+      at[1] <- from
+      axis(side=1, at=at -from, labels=format(at))
+      }))
+```
+
+未知パラメータのMCMCサンプル自己相関・プロット
+
+burn-inを除外しておく
+
+```{r,cache=TRUE}
+invisible(
+  lapply(
+    list(gibbsOut$dV, gibbsOut$dW[,1], gibbsOut$dW[,2])
+    , FUN=function(x){
+      acf(x[-(1:burn)])
+      }))
+```
+
+
