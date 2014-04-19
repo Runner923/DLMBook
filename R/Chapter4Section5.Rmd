@@ -12,13 +12,13 @@ rates <- c(0.1,0.5,1.0,5.0)
 invisible(lapply(X=rates, FUN=function(rate){
   print(rate)
   plot(x, dgamma(x=x,shape=shape,rate=rate))
-}))
+  }))
 rate <- 0.5
 shapes <- c(0.1, 1, 5, 10, 15)
 invisible(lapply(X=shapes, FUN=function(shape){
   print(shape)
   plot(x, dgamma(x=x,shape=shape,rate=rate))
-}))
+  }))
 
 ```
 
@@ -37,13 +37,13 @@ rates <- c(0.01,0.1,0.5,1.0,5.0)
 invisible(lapply(X=rates, FUN=function(rate){
   print(rate)
   plot(y, y^(-2) * dgamma(x=(1/y),shape=shape,rate=rate))
-}))
+  }))
 rate <- 0.5
 shapes <- c(0.01,0.1, 1, 5, 10, 15)
 invisible(lapply(X=shapes, FUN=function(shape){
   print(shape)
   plot(y, y^(-2) * dgamma(x=(1/y),shape=shape,rate=rate))
-}))
+  }))
 ```
 
 Modelling the investment amounts in Spain
@@ -119,4 +119,160 @@ invisible(
       }))
 ```
 
+各分散のMCMC平均値
 
+* 注意
+mcmcMeanをそのままprint使用とすると, knitr経由ではエラーになる.
+そこでmatrixに変換しておく.
+
+1行目が平均値 ,2行目が標準偏差
+```{r, cache=TRUE}
+library(DLMBook)
+matrix(mcmcMean(cbind(gibbsOut$dV[-(1:burn)], gibbsOut$dW[-(1:burn),], deparse.level=1),sd=T),nrow=2)
+```
+
+2 variates-plot 
+
+散布図を描いてみる
+```{r,cache=TRUE}
+library(DLMBook)
+values <- cbind(gibbsOut$dV[-(1:burn)], gibbsOut$dW[-(1:burn),])
+colnames(values) <- c("V", "W1", "W2")
+invisible(
+  combn(
+    x=(1:3), m=2,
+    FUN=function(x){
+      plot(x=values[,x[1]], y=values[,x[2]]
+           , xlab=colnames(values)[x[1]]
+           , ylab=colnames(values)[x[2]]
+           , col="black"
+           )
+      #       hist3D(x=seq(0,10, along.with=values[,x[1]]), y=c(0,0.01), z=values[,c(x[1],x[2])])
+      NULL
+      }
+    , simplify=F))
+```
+
+**4.5.2 多変量への拡張**
+
+SUTSEモデル
+
+例:スペインとデンマークの投資額
+
+4.5.1ではspainの投資額だけをモデル化した。
+ここではデンマークの投資額もモデル化する。
+$Y, ¥mu, ¥beta$それぞれの間の相関も考慮する（ブロック対角行列の相関係数行列）。
+
+事前分布のハイパーパラメータ
+$Y, W_\mu, W_\beta$に対するハイパーパラメータをそれぞれ$\delta_0, \delta_1, \delta_2$
+としておく。これらだけで定まるわけではなく、他所与のは定数にしておく。
+
+```{r,cache=TRUE}
+setwd("..")
+inv <- read.table("inst/extdata/invest2.dat", col.names=c("Denmark", "Spain"))
+y <- ts(inv, frequency=1, start=1960)
+## prior hyperparameters
+delta0 <- delta2 <- 3;
+delta1 <- 100
+V0 <- (delta0 - 1) * diag(c(10^2, 500^2))
+Wmu0 <- (delta1 -2) * diag(0.01^2, 2)
+Wbeta0 <- (delta2 -2) * diag(c(5^2, 100^2))
+## Gibbs sampling
+MC <- 30000
+TT <- nrow(y)
+gibbsTheta <- array(0, dim=c(TT+1, 4, MC-1))
+gibbsV <- array(0, dim=c(2,2,MC)) # Why? 2-2の分散行列なので
+gibbsWmu <- array(0, dim=c(2,2,MC)) 
+gibbsWbeta <- array(0, dim=c(2,2,MC)) 
+mod <- dlm(FF=matrix(c(1,0), nrow=1) %x% diag(2),
+           V = diag(2),
+           GG = matrix(c(1,0,1,1),2,2) %x% diag(2),
+           W = bdiag(diag(2), diag(2)),
+           m0 = c(inv[1,1], inv[1,2], 0, 0),
+           C0 = diag(x=1e7, nrow=4))
+# starting values
+mod$V <- gibbsV[,,1] <- V0/(delta0 - 2) # Why? Isn't this the expectation of V?
+gibbsWmu[,,1] <- Wmu0/(delta1 - 2)
+gibbsWbeta[,,1] <- Wbeta0/(delta2 - 2)
+mod$W <- bdiag(gibbsWmu[,,1], gibbsWbeta[,,1])
+# MCMC loop
+set.seed(3420)
+for(it in 1:(MC-1)){
+  # generate states 
+  modFilt <- dlmFilter(y, mod, simplify=T)
+  gibbsTheta[,,it] <- theta <- dlmBSample(modFilt=modFilt)
+  # update V
+  S <- crossprod(y- theta[-1,] %*% t(mod$FF)) + V0
+  gibbsV[,,it+1] <- solve(rwishart(df=delta0 + 1 + TT,p=2,Sigma=solve(S)))
+  #何を解いている？- 引数bがなければ逆行列
+  mod$V <- gibbsV[,,it+1]
+  # update Wmu and Wbeta
+  theta.center <- theta[-1,] - (theta[-(1+TT),] %*% t(mod$GG))
+  SStheta.center <- crossprod(theta.center)
+  SS1 <- SStheta.center[1:2, 1:2] + Wmu0
+  SS2 <- SStheta.center[3:4, 3:4] + Wbeta0
+  gibbsWmu[,,it+1] <- solve(rwishart(df=delta1+1+TT, Sigma=solve(SS1)))
+  gibbsWbeta[,,it+1] <- solve(rwishart(df=delta2+1+TT, Sigma=solve(SS2)))
+  mod$W <- bdiag(gibbsWmu[,,it+1], gibbsWbeta[,,it+1])
+  }
+```
+
+MCMCプロット
+
+分散行列$V, W_\beta$の時間平均プロットと自己相関
+
+```{r,cache=TRUE}
+burn <- 1:20000
+datV <- list(list(sqrt(gibbsV[1,1,-burn]),expression(sigma[1])),
+             list(sqrt(gibbsV[2,2,-burn]),expression(sigma[2])),
+             list(gibbsV[1,2,-burn],expression(sigma[12]))
+             )
+datWbeta <- list(list(sqrt(gibbsWbeta[1,1,-burn]),expression(sigma[1])),
+                 list(sqrt(gibbsWbeta[2,2,-burn]),expression(sigma[2])),
+                 list(gibbsWbeta[1,2,-burn],expression(sigma[12]))
+                 )
+plotVarianceMatrixMCMC <- function(dat){
+  par(mar=c(2,4,1,1)+0.1, cex=0.8)
+  par(mfrow=c(3,2))
+  invisible(lapply(dat, FUN=function(i){
+    plot(ergMean(i[[1]]), type="l",
+         main="",cex.lab=1.5, ylab=i[[2]],
+         xlab="MCMC iteration")
+    acf(i[[1]],main="")
+    }))
+  }
+plotVarianceMatrixMCMC(datV)
+plotVarianceMatrixMCMC(datWbeta)
+data.frame(
+  cbind(mcmcMean(gibbsV[1,1,-burn]),mcmcMean(gibbsV[2,2,-burn]),mcmcMean(gibbsV[1,2,-burn])))
+data.frame(
+  cbind(mcmcMean(gibbsWbeta[1,1,-burn]),mcmcMean(gibbsWbeta[2,2,-burn]),mcmcMean(gibbsWbeta[1,2,-burn])))
+data.frame(
+  cbind(mcmcMean(gibbsWmu[1,1,-burn]),mcmcMean(gibbsWmu[2,2,-burn]),mcmcMean(gibbsWmu[1,2,-burn])))
+```
+
+状態のMCMC平均プロット
+
+```{r,cache=TRUE}
+
+mean.theta.1 <- mcmcMean(x=t(gibbsTheta[,1,-burn]),sd=F)
+mean.theta.2 <- mcmcMean(x=t(gibbsTheta[,2,-burn]),sd=F)
+par(mar=c(2, 4, 1, 2) + 0.1)
+par(mfrow=c(2,1))
+plot(mean.theta.1, col="red", lty="solid", type="o")
+lapply(X=1:100,FUN=function(i){
+  lines(gibbsTheta[,1,-burn][,i], col="grey", cex=0.1)
+  })
+lines(mean.theta.1, col="red", lty="solid", type="o")
+
+conf.interval <- 0.9
+upper1 <- sapply(X=1:(dim(x=gibbsTheta)[1]), FUN=function(t){
+  quantile(gibbsTheta[t,1,-burn],conf.interval)
+  })
+lower1 <- sapply(X=1:(dim(x=gibbsTheta)[1]), FUN=function(t){
+  quantile(gibbsTheta[t,1,-burn],1-conf.interval)
+  })
+lines(upper1, col="blue")
+lines(lower1, col="blue")
+
+```
